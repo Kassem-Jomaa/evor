@@ -9,14 +9,32 @@ import type { CmsContent, Category, Order, Product } from "@/types";
  * all bag types.
  */
 
+/** Build an Unsplash image URL at the given width. */
+function unsplash(photoId: string, width = 900): string {
+  return `https://images.unsplash.com/${photoId}?q=80&w=${width}&auto=format&fit=crop`;
+}
+
+/**
+ * Build the 3-image gallery used by demo products: the same photograph in
+ * three crops, standing in for angle shots until real product photography
+ * arrives.
+ */
+function gallery(photoId: string): string[] {
+  return [
+    unsplash(photoId),
+    `https://images.unsplash.com/${photoId}?q=80&w=900&auto=format&fit=crop&crop=entropy`,
+    `https://images.unsplash.com/${photoId}?q=80&w=900&auto=format&fit=crop&crop=top`,
+  ];
+}
+
 export const fallbackCms: CmsContent = {
   hero: {
-    title: "Carry it well — bags made to last",
+    title: "Elegance you can carry",
     subtitle:
-      "Discover the EVOR edit of leather totes, shoulder bags and clutches, crafted to go everywhere you do.",
-    ctaLabel: "Shop bags",
+      "Handcrafted handbags for women who notice the details — leather totes, shoulder bags and evening clutches, made to be loved for years.",
+    ctaLabel: "Shop the collection",
     ctaHref: "/shop",
-    image: "https://picsum.photos/seed/evor-bags-hero/1600/900",
+    image: unsplash("photo-1483985988355-763728e1935b", 1800),
   },
 };
 
@@ -25,40 +43,31 @@ export const fallbackCategories: Category[] = [
     id: "c1",
     slug: "tote-bags",
     name: "Tote Bags",
-    image: "https://picsum.photos/seed/evor-totes/600/600",
+    image: unsplash("photo-1591561954557-26941169b49e", 700),
     active: true,
   },
   {
     id: "c2",
     slug: "shoulder-bags",
     name: "Shoulder Bags",
-    image: "https://picsum.photos/seed/evor-shoulder/600/600",
+    image: unsplash("photo-1548036328-c9fa89d128fa", 700),
     active: true,
   },
   {
     id: "c3",
     slug: "crossbody-bags",
     name: "Crossbody Bags",
-    image: "https://picsum.photos/seed/evor-crossbody/600/600",
+    image: unsplash("photo-1566150905458-1bf1fc113f0d", 700),
     active: true,
   },
   {
     id: "c4",
     slug: "clutches",
     name: "Clutches",
-    image: "https://picsum.photos/seed/evor-clutches/600/600",
+    image: unsplash("photo-1584917865442-de89df76afd3", 700),
     active: true,
   },
 ];
-
-/** Build the 3-image gallery used by demo products. */
-function gallery(seed: string): string[] {
-  return [
-    `https://picsum.photos/seed/${seed}-a/800/800`,
-    `https://picsum.photos/seed/${seed}-b/800/800`,
-    `https://picsum.photos/seed/${seed}-c/800/800`,
-  ];
-}
 
 /**
  * Full demo catalog of bags spanning every category and a range of prices, so
@@ -76,7 +85,7 @@ export const fallbackProducts: Product[] = [
       "A full-grain leather tote roomy enough for a laptop and your day's essentials. Soft structured sides and a magnetic top closure.",
     price: 145,
     currency: "USD",
-    images: gallery("evor-bag1"),
+    images: gallery("photo-1591561954557-26941169b49e"),
     categoryId: "c1",
     stock: 22,
     rating: 4.8,
@@ -92,7 +101,7 @@ export const fallbackProducts: Product[] = [
       "A sturdy cotton-canvas tote with leather handles — light, foldable and built for everyday errands.",
     price: 68,
     currency: "USD",
-    images: gallery("evor-bag2"),
+    images: gallery("photo-1553062407-98eeb64c6a62"),
     categoryId: "c1",
     stock: 50,
     rating: 4.5,
@@ -107,7 +116,7 @@ export const fallbackProducts: Product[] = [
       "A polished saffiano-leather work tote with a padded sleeve and gold-tone hardware. Stands upright on its own.",
     price: 189,
     currency: "USD",
-    images: gallery("evor-bag3"),
+    images: gallery("photo-1548036328-c9fa89d128fa"),
     categoryId: "c1",
     stock: 14,
     rating: 4.9,
@@ -125,7 +134,7 @@ export const fallbackProducts: Product[] = [
       "A quilted leather shoulder bag on a removable chain strap. Timeless, compact and dressed-up ready.",
     price: 135,
     currency: "USD",
-    images: gallery("evor-bag4"),
+    images: gallery("photo-1584917865442-de89df76afd3"),
     categoryId: "c2",
     stock: 26,
     rating: 4.7,
@@ -141,7 +150,7 @@ export const fallbackProducts: Product[] = [
       "A slouchy hobo in buttery pebbled leather that moulds to your shoulder. Roomy single compartment with a zip pocket.",
     price: 98,
     currency: "USD",
-    images: gallery("evor-bag5"),
+    images: gallery("photo-1559563458-527698bf5295"),
     categoryId: "c2",
     stock: 31,
     rating: 4.4,
@@ -156,7 +165,7 @@ export const fallbackProducts: Product[] = [
       "A neat little baguette that tucks under the arm — just enough room for the essentials, all charm.",
     price: 79,
     currency: "USD",
-    images: gallery("evor-bag6"),
+    images: gallery("photo-1564422170194-896b89110ef8"),
     categoryId: "c2",
     stock: 0,
     rating: 4.6,
@@ -173,7 +182,7 @@ export const fallbackProducts: Product[] = [
       "A slim saffiano-leather crossbody with an adjustable strap and card slots inside. Hands-free and city-ready.",
     price: 112,
     currency: "USD",
-    images: gallery("evor-bag7"),
+    images: gallery("photo-1566150905458-1bf1fc113f0d"),
     categoryId: "c3",
     stock: 28,
     rating: 4.7,
@@ -189,7 +198,7 @@ export const fallbackProducts: Product[] = [
       "A compact camera-style crossbody with a webbing strap and front zip pocket. Casual, practical, everyday.",
     price: 89,
     currency: "USD",
-    images: gallery("evor-bag8"),
+    images: gallery("photo-1547949003-9792a18a2601"),
     categoryId: "c3",
     stock: 37,
     rating: 4.5,
@@ -204,7 +213,7 @@ export const fallbackProducts: Product[] = [
       "A drawstring bucket bag in smooth leather with a detachable crossbody strap. Carries more than it looks.",
     price: 124,
     currency: "USD",
-    images: gallery("evor-bag9"),
+    images: gallery("photo-1627123424574-724758594e93"),
     categoryId: "c3",
     stock: 18,
     rating: 4.6,
@@ -221,7 +230,7 @@ export const fallbackProducts: Product[] = [
       "A sleek satin clutch with a concealed magnetic clasp and a fine drop-in chain for evenings out.",
     price: 64,
     currency: "USD",
-    images: gallery("evor-bag10"),
+    images: gallery("photo-1575032617751-6ddec2089882"),
     categoryId: "c4",
     stock: 44,
     rating: 4.5,
@@ -236,7 +245,7 @@ export const fallbackProducts: Product[] = [
       "A minimalist envelope clutch in smooth leather — slim enough for a phone, cards and a lipstick.",
     price: 72,
     currency: "USD",
-    images: gallery("evor-bag11"),
+    images: gallery("photo-1606522754091-a3bbf9ad4cb3"),
     categoryId: "c4",
     stock: 33,
     rating: 4.7,
@@ -252,7 +261,7 @@ export const fallbackProducts: Product[] = [
       "A hand-beaded clutch that catches the light. A small statement piece for special occasions.",
     price: 95,
     currency: "USD",
-    images: gallery("evor-bag12"),
+    images: gallery("photo-1594223274512-ad4803739b7c"),
     categoryId: "c4",
     stock: 11,
     rating: 4.9,

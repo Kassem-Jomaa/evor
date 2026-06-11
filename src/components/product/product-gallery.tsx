@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/utils/cn";
 
 /**
@@ -20,17 +21,28 @@ export function ProductGallery({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
-        {mainSrc && (
-          <Image
-            src={mainSrc}
-            alt={alt}
-            fill
-            priority
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
-        )}
+      <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {mainSrc && (
+            <motion.div
+              key={mainSrc}
+              className="absolute inset-0"
+              initial={{ opacity: 0, scale: 1.04 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Image
+                src={mainSrc}
+                alt={alt}
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {images.length > 1 && (

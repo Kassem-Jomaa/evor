@@ -34,9 +34,10 @@ export function Header() {
               key={link.href}
               href={link.href}
               className={cn(
-                "text-sm font-medium transition-colors hover:text-brand",
+                "relative text-sm font-medium transition-colors hover:text-brand",
+                "after:absolute after:-bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-brand after:transition-transform after:duration-300 hover:after:scale-x-100",
                 isActive(link.href)
-                  ? "text-brand"
+                  ? "text-brand after:scale-x-100"
                   : "text-muted-foreground",
               )}
             >
