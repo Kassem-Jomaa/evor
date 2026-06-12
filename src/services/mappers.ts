@@ -183,16 +183,13 @@ export function mapBannerToHero(api: ApiBanner): HeroContent {
   };
 }
 
-/**
- * Banner payload for creating/updating the homepage hero (Task 11.1).
- * `buttonLink` is intentionally omitted: the backend DTO rejects it (400) even
- * though it appears in responses — the CTA falls back to "/shop" on read.
- */
+/** Banner payload for creating/updating the homepage hero (Task 11.1). */
 export function heroToBannerPayload(hero: HeroContent) {
   return {
     title: hero.title,
     subtitle: hero.subtitle || undefined,
     image: hero.image,
     buttonText: hero.ctaLabel || undefined,
+    buttonLink: hero.ctaHref || undefined,
   };
 }

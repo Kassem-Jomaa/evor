@@ -47,13 +47,13 @@ const PRODUCTS = [
   { title: "Beaded Party Clutch", slug: "beaded-party-clutch", sku: "EVR-CLT-003", price: 95, stock: 11, featured: false, category: "clutches", photo: "photo-1594223274512-ad4803739b7c", description: "A hand-beaded clutch that catches the light. A small statement piece for special occasions." },
 ];
 
-// `buttonLink` omitted — the backend DTO rejects it (frontend defaults to /shop).
 const HERO_BANNER = {
   title: "Elegance you can carry",
   subtitle:
     "Handcrafted handbags for women who notice the details — leather totes, shoulder bags and evening clutches, made to be loved for years.",
   image: unsplash("photo-1483985988355-763728e1935b", 1800),
   buttonText: "Shop the collection",
+  buttonLink: "/shop",
 };
 
 async function req(method, path, body, token) {
