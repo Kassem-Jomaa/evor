@@ -1,18 +1,70 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FolderTree, Package, ShoppingCart } from "lucide-react";
+import { FolderTree, Loader2, Package, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { productService } from "@/services/product.service";
 import { categoryService } from "@/services/category.service";
 import { orderService } from "@/services/order.service";
 import { formatCurrency } from "@/utils/format";
+import type { Category, Order, Paginated, Product } from "@/types";
 
-export default async function AdminDashboardPage() {
-  const [catalog, categories, orders] = await Promise.all([
-    productService.list(),
-    categoryService.list(),
-    orderService.listAdmin(),
-  ]);
+interface DashboardData {
+  catalog: Paginated<Product>;
+  categories: Category[];
+  orders: Order[];
+}
+
+/**
+ * Admin overview. Fetches client-side: the orders endpoint needs the JWT,
+ * which only exists in the browser.
+ */
+export default function AdminDashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      productService.list(),
+      categoryService.list(),
+      orderService.listAdmin(),
+    ])
+      .then(([catalog, categories, orders]) => {
+        if (!cancelled) setData({ catalog, categories, orders });
+      })
+      .catch(() => {
+        if (!cancelled)
+          setError("Couldn't load the dashboard — your session may have expired. Log out and sign in again.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <p
+        role="alert"
+        className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-6 text-center text-sm text-destructive"
+      >
+        {error}
+      </p>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const { catalog, categories, orders } = data;
 
   const revenue = orders
     .filter((o) => o.status !== "cancelled")
@@ -106,6 +158,11 @@ export default async function AdminDashboardPage() {
               </Link>
             </li>
           ))}
+          {recent.length === 0 && (
+            <li className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No orders yet.
+            </li>
+          )}
         </ul>
       </div>
     </div>

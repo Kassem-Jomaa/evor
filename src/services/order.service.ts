@@ -1,5 +1,5 @@
 import api from "@/services/api";
-import { withFallback, withOfflineFallback } from "@/services/with-fallback";
+import { withOfflineFallback } from "@/services/with-fallback";
 import {
   mapOrder,
   toApiStatus,
@@ -38,9 +38,13 @@ export const orderService = {
     );
   },
 
-  /** List all orders for the admin dashboard (Task 10.1, `GET /orders`). */
+  /**
+   * List all orders for the admin dashboard (Task 10.1, `GET /orders`).
+   * Falls back to demo data only when the backend is unreachable — auth
+   * errors (401) surface so the UI never silently shows demo orders.
+   */
   listAdmin(): Promise<Order[]> {
-    return withFallback(
+    return withOfflineFallback(
       "order.listAdmin",
       async () => {
         const { data } = await api.get<ApiPaginated<ApiOrder> | ApiOrder[]>(
@@ -56,7 +60,7 @@ export const orderService = {
 
   /** Fetch one order with full detail (Task 10.2, `GET /orders/:id`). */
   getAdmin(id: string): Promise<Order | null> {
-    return withFallback(
+    return withOfflineFallback(
       "order.getAdmin",
       async () => {
         const { data } = await api.get<ApiOrder>(`/orders/${id}`);

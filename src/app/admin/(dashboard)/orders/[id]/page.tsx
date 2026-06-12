@@ -1,24 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Phone, User } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, Loader2, MapPin, Phone, User } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { OrderStatusControl } from "@/components/admin/order-status-control";
 import { ORDER_STATUS_META } from "@/config/admin";
 import { orderService } from "@/services/order.service";
 import { formatCurrency, formatDateTime } from "@/utils/format";
+import type { Order } from "@/types";
 
-export const dynamic = "force-dynamic";
+/**
+ * Admin order detail (Tasks 10.2–10.3). Fetches client-side because the
+ * endpoint needs the JWT, which lives in the browser.
+ */
+export default function AdminOrderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export default async function AdminOrderDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const order = await orderService.getAdmin(id);
+  useEffect(() => {
+    let cancelled = false;
+    orderService
+      .getAdmin(id)
+      .then((data) => {
+        if (!cancelled) {
+          setOrder(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-  if (!order) notFound();
+  if (loading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="rounded-lg border border-dashed border-border py-20 text-center">
+        <p className="text-sm text-muted-foreground">Order not found.</p>
+        <Link
+          href="/admin/orders"
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+        >
+          <ArrowLeft className="size-4" /> Back to orders
+        </Link>
+      </div>
+    );
+  }
 
   const timeline = [...(order.timeline ?? [])].sort((a, b) =>
     b.at.localeCompare(a.at),
@@ -117,7 +158,11 @@ export default async function AdminOrderDetailPage({
         {/* Side column: status control + timeline */}
         <div className="space-y-6">
           <section className="rounded-lg border border-border bg-card p-5">
-            <OrderStatusControl orderId={order.id} status={order.status} />
+            <OrderStatusControl
+              orderId={order.id}
+              status={order.status}
+              onUpdated={setOrder}
+            />
           </section>
 
           <section className="rounded-lg border border-border bg-card p-5">

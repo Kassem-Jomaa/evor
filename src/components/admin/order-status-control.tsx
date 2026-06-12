@@ -1,24 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { ORDER_STATUSES, ORDER_STATUS_META } from "@/config/admin";
 import { orderService } from "@/services/order.service";
-import type { OrderStatus } from "@/types";
+import type { Order, OrderStatus } from "@/types";
 
 /**
  * Update an order's status (Task 10.3). Submits the chosen status to the API
- * and refreshes the page so the badge and timeline reflect the change.
+ * and hands the updated order back to the parent so the badge and timeline
+ * reflect the change.
  */
 export function OrderStatusControl({
   orderId,
   status,
+  onUpdated,
 }: {
   orderId: string;
   status: OrderStatus;
+  onUpdated: (order: Order) => void;
 }) {
-  const router = useRouter();
   const [value, setValue] = useState<OrderStatus>(status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +30,8 @@ export function OrderStatusControl({
     setSaving(true);
     setError(null);
     try {
-      await orderService.updateStatus(orderId, value);
-      router.refresh();
+      const updated = await orderService.updateStatus(orderId, value);
+      onUpdated(updated);
     } catch {
       setError("Couldn't update status.");
     } finally {
