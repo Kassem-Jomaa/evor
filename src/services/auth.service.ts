@@ -1,11 +1,26 @@
 import api from "@/services/api";
-import { withFallback } from "@/services/with-fallback";
-import type { LoginRequest, LoginResponse } from "@/types";
+import { withOfflineFallback } from "@/services/with-fallback";
+import type { LoginRequest, LoginResponse, User } from "@/types";
+
+/** Backend login response: `access_token` plus a minimal user record. */
+interface ApiLoginResponse {
+  access_token: string;
+  user: { id: string; email: string; role: string };
+}
+
+function mapUser(apiUser: ApiLoginResponse["user"]): User {
+  return {
+    id: apiUser.id,
+    email: apiUser.email,
+    name: apiUser.email.split("@")[0],
+    role: apiUser.role.toUpperCase().includes("ADMIN") ? "admin" : "customer",
+  };
+}
 
 /**
- * Demo admin session used when the backend is unavailable, so the dashboard
- * remains explorable offline (consistent with the storefront's fallback data).
- * A real deployment returns a signed JWT from the API.
+ * Demo admin session used only when the backend is *unreachable*, so the
+ * dashboard remains explorable in offline development. Wrong credentials
+ * against the live API are rejected for real (401 passes through).
  */
 function demoSession(email: string): LoginResponse {
   return {
@@ -20,14 +35,14 @@ function demoSession(email: string): LoginResponse {
  */
 export const authService = {
   login(credentials: LoginRequest): Promise<LoginResponse> {
-    return withFallback(
+    return withOfflineFallback(
       "auth.login",
       async () => {
-        const { data } = await api.post<LoginResponse>(
+        const { data } = await api.post<ApiLoginResponse>(
           "/auth/login",
           credentials,
         );
-        return data;
+        return { token: data.access_token, user: mapUser(data.user) };
       },
       () => demoSession(credentials.email),
     );

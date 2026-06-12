@@ -1,6 +1,11 @@
 import api from "@/services/api";
 import { withFallback } from "@/services/with-fallback";
 import {
+  mapProduct,
+  type ApiPaginated,
+  type ApiProduct,
+} from "@/services/mappers";
+import {
   fallbackFeaturedProducts,
   fallbackProducts,
 } from "@/config/fallback-data";
@@ -12,10 +17,14 @@ import type {
   ProductListParams,
 } from "@/types";
 
+/** UUID test — the backend fetches products by id, while our URLs use slugs. */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Apply the list query (search/category/price) to an in-memory catalog. Used
  * for the fallback/demo path so search and filters still work when the backend
- * is offline; the real API performs the same filtering server-side.
+ * is offline; the real API performs name/category filtering server-side.
  */
 function filterCatalog(
   products: Product[],
@@ -39,24 +48,87 @@ function filterCatalog(
   });
 }
 
+/** Map our ProductInput to the backend's create/update DTO. */
+function toApiPayload(input: ProductInput) {
+  return {
+    title: input.name,
+    slug: slugify(input.name),
+    sku:
+      input.sku?.trim() ||
+      `EVR-${slugify(input.name).slice(0, 12).toUpperCase()}-${Date.now() % 1000}`,
+    // Backend requires a description; fall back to the title.
+    description: input.description.trim() || input.name,
+    price: input.price,
+    stock: input.stock,
+    categoryId: input.categoryId,
+    featured: input.featured,
+    images: input.images,
+  };
+}
+
+/**
+ * Fetch every product matching the query. The backend's `GET /products`
+ * wrongly treats a *missing* `featured` param as `featured=false` and hides
+ * featured products, so we query both halves in parallel and merge. (Still
+ * correct if the backend fixes the bug, since each half stays filtered.)
+ */
+async function fetchAllProducts(params: {
+  search?: string;
+  categoryId?: string;
+  limit: number;
+}): Promise<{ items: Product[]; total: number }> {
+  const query = {
+    search: params.search || undefined,
+    categoryId: params.categoryId || undefined,
+    limit: params.limit,
+  };
+  const [featured, regular] = await Promise.all([
+    api.get<ApiPaginated<ApiProduct>>("/products", {
+      params: { ...query, featured: true },
+    }),
+    api.get<ApiPaginated<ApiProduct>>("/products", {
+      params: { ...query, featured: false },
+    }),
+  ]);
+  const items = [...featured.data.data, ...regular.data.data].map(mapProduct);
+  return { items, total: featured.data.meta.total + regular.data.meta.total };
+}
+
 /**
  * Product service. Components/hooks should call these functions rather than
- * using `api` directly.
+ * using `api` directly. Reads fall back to the demo catalog when the backend
+ * is unreachable; writes surface real API errors.
  */
 export const productService = {
   /**
-   * List products (Tasks 4.1–4.3). Supports free-text search (name/SKU),
-   * category and price-range filtering via `GET /products`. Falls back to the
-   * demo catalog — filtered locally — when the backend is unavailable.
+   * List products (Tasks 4.1–4.3) via `GET /products`. The backend returns
+   * `{ data, meta }` with `title`/string prices; mapping happens here. Price
+   * range filtering is client-side only (the API has no price params).
    */
   list(params: ProductListParams = {}): Promise<Paginated<Product>> {
     return withFallback(
       "product.list",
       async () => {
-        const { data } = await api.get<Paginated<Product>>("/products", {
-          params,
+        const limit = params.pageSize ?? 100;
+        const { items: all, total } = await fetchAllProducts({
+          search: params.search,
+          categoryId: params.categoryId,
+          limit,
         });
-        return data;
+        let items = all;
+        // The API has no price filters; apply them locally when requested.
+        if (params.minPrice != null || params.maxPrice != null) {
+          items = filterCatalog(items, {
+            minPrice: params.minPrice,
+            maxPrice: params.maxPrice,
+          });
+        }
+        return {
+          items,
+          page: params.page ?? 1,
+          pageSize: limit,
+          total,
+        };
       },
       () => {
         const items = filterCatalog(fallbackProducts, params);
@@ -70,72 +142,43 @@ export const productService = {
     );
   },
 
-  /** Fetch a single product by slug (Task 4.4, `GET /products/:slug`). */
+  /**
+   * Fetch a single product (Task 4.4). Our URLs use slugs but the backend only
+   * resolves UUIDs, so non-UUID lookups go through the list and match locally.
+   */
   getBySlug(slug: string): Promise<Product | null> {
     return withFallback(
       "product.getBySlug",
       async () => {
-        const { data } = await api.get<Product>(`/products/${slug}`);
-        return data;
+        if (UUID_RE.test(slug)) {
+          const { data } = await api.get<ApiProduct>(`/products/${slug}`);
+          return mapProduct(data);
+        }
+        const { items } = await fetchAllProducts({ limit: 100 });
+        return items.find((product) => product.slug === slug) ?? null;
       },
       () => fallbackProducts.find((product) => product.slug === slug) ?? null,
     );
   },
 
-  /** Create a product (Task 9.2, `POST /products`). */
-  create(input: ProductInput): Promise<Product> {
-    return withFallback(
-      "product.create",
-      async () => {
-        const { data } = await api.post<Product>("/products", input);
-        return data;
-      },
-      () => ({
-        id: `p_${Date.now()}`,
-        slug: slugify(input.name),
-        name: input.name,
-        sku: input.sku?.trim() || `EVR-${slugify(input.name).slice(0, 6).toUpperCase()}`,
-        description: input.description,
-        price: input.price,
-        currency: "USD",
-        images: input.images,
-        categoryId: input.categoryId,
-        stock: input.stock,
-        featured: input.featured,
-        createdAt: new Date().toISOString(),
-      }),
-    );
+  /** Create a product (Task 9.2, `POST /products`). Errors surface to the form. */
+  async create(input: ProductInput): Promise<Product> {
+    const { data } = await api.post<ApiProduct>("/products", toApiPayload(input));
+    return mapProduct(data);
   },
 
   /** Update a product (`PATCH /products/:id`). */
-  update(id: string, input: Partial<ProductInput>): Promise<Product> {
-    return withFallback(
-      "product.update",
-      async () => {
-        const { data } = await api.patch<Product>(`/products/${id}`, input);
-        return data;
-      },
-      () => {
-        const existing = fallbackProducts.find((p) => p.id === id);
-        if (!existing) throw new Error(`Product ${id} not found`);
-        return {
-          ...existing,
-          ...input,
-          slug: input.name ? slugify(input.name) : existing.slug,
-        };
-      },
+  async update(id: string, input: ProductInput): Promise<Product> {
+    const { data } = await api.patch<ApiProduct>(
+      `/products/${id}`,
+      toApiPayload(input),
     );
+    return mapProduct(data);
   },
 
   /** Delete a product (`DELETE /products/:id`). */
-  remove(id: string): Promise<void> {
-    return withFallback(
-      "product.remove",
-      async () => {
-        await api.delete(`/products/${id}`);
-      },
-      () => undefined,
-    );
+  async remove(id: string): Promise<void> {
+    await api.delete(`/products/${id}`);
   },
 
   /** Featured products for the homepage (Task 3.3, `GET /products?featured=true`). */
@@ -143,11 +186,10 @@ export const productService = {
     return withFallback(
       "product.getFeatured",
       async () => {
-        const { data } = await api.get<Paginated<Product> | Product[]>(
-          "/products",
-          { params: { featured: true } },
-        );
-        return Array.isArray(data) ? data : data.items;
+        const { data } = await api.get<ApiPaginated<ApiProduct>>("/products", {
+          params: { featured: true, limit: 8 },
+        });
+        return data.data.map(mapProduct);
       },
       fallbackFeaturedProducts,
     );

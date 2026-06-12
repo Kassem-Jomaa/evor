@@ -47,6 +47,7 @@ export function ProductForm({
     const stockNum = Number(stock);
 
     if (!name.trim()) return setError("Title is required.");
+    if (!description.trim()) return setError("Description is required.");
     if (!Number.isFinite(priceNum) || priceNum < 0)
       return setError("Enter a valid price.");
     if (!Number.isInteger(stockNum) || stockNum < 0)
@@ -113,7 +114,7 @@ export function ProductForm({
 
       <div className="space-y-1.5">
         <label htmlFor="description" className="text-sm font-medium">
-          Description
+          Description <span className="text-destructive">*</span>
         </label>
         <textarea
           id="description"

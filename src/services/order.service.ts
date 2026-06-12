@@ -1,89 +1,79 @@
 import api from "@/services/api";
-import { withFallback } from "@/services/with-fallback";
+import { withFallback, withOfflineFallback } from "@/services/with-fallback";
+import {
+  mapOrder,
+  toApiStatus,
+  type ApiOrder,
+  type ApiPaginated,
+} from "@/services/mappers";
 import { fallbackOrders } from "@/config/fallback-data";
 import type {
   CreateOrderRequest,
   CreateOrderResponse,
   Order,
   OrderStatus,
-  Paginated,
 } from "@/types";
 
-/** Generate a demo order number (e.g. "EV-1024") for the offline fallback. */
+/** Generate a demo order number for the offline fallback. */
 function mockOrderNumber(): string {
   return `EV-${1000 + Math.floor(Math.random() * 9000)}`;
 }
 
 /**
  * Order service. Customers place cash-on-delivery orders (Task 6.3); admins
- * list, inspect and progress them (Milestone 10). Falls back to demo data when
- * the backend is unavailable so the flow stays explorable offline.
+ * list, inspect and progress them via the JWT-protected `/orders` endpoints
+ * (Milestone 10). Admin reads fall back to demo data offline; status writes
+ * surface real API errors.
  */
 export const orderService = {
   /** Place a customer order (Task 6.3, `POST /orders`). */
   create(payload: CreateOrderRequest): Promise<CreateOrderResponse> {
-    return withFallback(
+    return withOfflineFallback(
       "order.create",
       async () => {
-        const { data } = await api.post<CreateOrderResponse>(
-          "/orders",
-          payload,
-        );
-        return data;
+        const { data } = await api.post<ApiOrder>("/orders", payload);
+        return { orderNumber: data.orderNumber };
       },
       () => ({ orderNumber: mockOrderNumber() }),
     );
   },
 
-  /** List all orders for the admin dashboard (Task 10.1, `GET /admin/orders`). */
+  /** List all orders for the admin dashboard (Task 10.1, `GET /orders`). */
   listAdmin(): Promise<Order[]> {
     return withFallback(
       "order.listAdmin",
       async () => {
-        const { data } = await api.get<Paginated<Order> | Order[]>(
-          "/admin/orders",
+        const { data } = await api.get<ApiPaginated<ApiOrder> | ApiOrder[]>(
+          "/orders",
+          { params: { limit: 100 } },
         );
-        return Array.isArray(data) ? data : data.items;
+        const orders = Array.isArray(data) ? data : data.data;
+        return orders.map(mapOrder);
       },
       fallbackOrders,
     );
   },
 
-  /** Fetch one order with full detail (Task 10.2, `GET /admin/orders/:id`). */
+  /** Fetch one order with full detail (Task 10.2, `GET /orders/:id`). */
   getAdmin(id: string): Promise<Order | null> {
     return withFallback(
       "order.getAdmin",
       async () => {
-        const { data } = await api.get<Order>(`/admin/orders/${id}`);
-        return data;
+        const { data } = await api.get<ApiOrder>(`/orders/${id}`);
+        return mapOrder(data);
       },
       () => fallbackOrders.find((order) => order.id === id) ?? null,
     );
   },
 
   /**
-   * Update an order's status (Task 10.3, `PATCH /admin/orders/:id/status`).
+   * Update an order's status (Task 10.3, `PATCH /orders/:id/status`).
+   * The backend uses UPPERCASE enum values; mapping happens here.
    */
-  updateStatus(id: string, status: OrderStatus): Promise<Order> {
-    return withFallback(
-      "order.updateStatus",
-      async () => {
-        const { data } = await api.patch<Order>(
-          `/admin/orders/${id}/status`,
-          { status },
-        );
-        return data;
-      },
-      () => {
-        const existing = fallbackOrders.find((order) => order.id === id);
-        const now = new Date().toISOString();
-        if (!existing) throw new Error(`Order ${id} not found`);
-        return {
-          ...existing,
-          status,
-          timeline: [...(existing.timeline ?? []), { status, at: now }],
-        };
-      },
-    );
+  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+    const { data } = await api.patch<ApiOrder>(`/orders/${id}/status`, {
+      status: toApiStatus(status),
+    });
+    return mapOrder(data);
   },
 };
