@@ -48,14 +48,14 @@ function filterCatalog(
   });
 }
 
-/** Map our ProductInput to the backend's create/update DTO. */
-function toApiPayload(input: ProductInput) {
-  return {
+/**
+ * Map our ProductInput to the backend's product DTO. `slug` and `sku` are only
+ * accepted by the **create** endpoint; the update DTO whitelist rejects them
+ * with a 400 ("property slug should not exist"), so they're omitted on update.
+ */
+function toApiPayload(input: ProductInput, { create }: { create: boolean }) {
+  const payload = {
     title: input.name,
-    slug: slugify(input.name),
-    sku:
-      input.sku?.trim() ||
-      `EVR-${slugify(input.name).slice(0, 12).toUpperCase()}-${Date.now() % 1000}`,
     // Backend requires a description; fall back to the title.
     description: input.description.trim() || input.name,
     price: input.price,
@@ -63,6 +63,14 @@ function toApiPayload(input: ProductInput) {
     categoryId: input.categoryId,
     featured: input.featured,
     images: input.images,
+  };
+  if (!create) return payload;
+  return {
+    ...payload,
+    slug: slugify(input.name),
+    sku:
+      input.sku?.trim() ||
+      `EVR-${slugify(input.name).slice(0, 12).toUpperCase()}-${Date.now() % 1000}`,
   };
 }
 
@@ -163,7 +171,10 @@ export const productService = {
 
   /** Create a product (Task 9.2, `POST /products`). Errors surface to the form. */
   async create(input: ProductInput): Promise<Product> {
-    const { data } = await api.post<ApiProduct>("/products", toApiPayload(input));
+    const { data } = await api.post<ApiProduct>(
+      "/products",
+      toApiPayload(input, { create: true }),
+    );
     return mapProduct(data);
   },
 
@@ -171,7 +182,7 @@ export const productService = {
   async update(id: string, input: ProductInput): Promise<Product> {
     const { data } = await api.patch<ApiProduct>(
       `/products/${id}`,
-      toApiPayload(input),
+      toApiPayload(input, { create: false }),
     );
     return mapProduct(data);
   },
