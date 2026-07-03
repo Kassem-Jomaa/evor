@@ -4,12 +4,10 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { env } from "@/config/env";
+import { AUTH_TOKEN_KEY, clearAuthCookie } from "@/config/auth";
 
-/**
- * Key under which the auth token is stored in localStorage.
- * Kept here so request/response interceptors and auth flows agree on it.
- */
-export const AUTH_TOKEN_KEY = "evor_token";
+// Re-exported so existing importers of `@/services/api` keep working.
+export { AUTH_TOKEN_KEY };
 
 /**
  * Pre-configured Axios instance for talking to the EVOR backend.
@@ -45,9 +43,11 @@ api.interceptors.response.use(
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
 
-      // Token expired / unauthorized → clear it so the UI can re-auth.
+      // Token expired / unauthorized → clear it (localStorage + cookie) so the
+      // UI re-auths and the middleware redirects the next admin navigation.
       if (status === 401 && typeof window !== "undefined") {
         window.localStorage.removeItem(AUTH_TOKEN_KEY);
+        clearAuthCookie();
       }
 
       const message =

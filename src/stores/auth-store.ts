@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { AUTH_TOKEN_KEY } from "@/services/api";
+import { AUTH_TOKEN_KEY, setAuthCookie, clearAuthCookie } from "@/config/auth";
 import type { LoginResponse, User } from "@/types";
 
 interface AuthState {
@@ -26,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           window.localStorage.setItem(AUTH_TOKEN_KEY, token);
         }
+        setAuthCookie(token);
         set({ token, user });
       },
 
@@ -33,9 +34,17 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(AUTH_TOKEN_KEY);
         }
+        clearAuthCookie();
         set({ token: null, user: null });
       },
     }),
-    { name: "evor-auth" },
+    {
+      name: "evor-auth",
+      // Re-mirror the persisted token into the cookie on load so the
+      // server-side middleware and the store never disagree in a fresh tab.
+      onRehydrateStorage: () => (state) => {
+        if (state?.token) setAuthCookie(state.token);
+      },
+    },
   ),
 );

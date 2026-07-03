@@ -32,7 +32,14 @@ export default function AdminLoginPage() {
     try {
       const session = await authService.login({ email: email.trim(), password });
       setSession(session);
-      router.replace("/admin");
+      // Return to the admin page the middleware bounced us from, if any.
+      // Guard against open redirects: only same-origin /admin paths are honored.
+      const from = new URLSearchParams(window.location.search).get("from");
+      const dest =
+        from && from.startsWith("/admin") && from !== "/admin/login"
+          ? from
+          : "/admin";
+      router.replace(dest);
     } catch {
       setError("Invalid credentials. Please try again.");
       setSubmitting(false);
